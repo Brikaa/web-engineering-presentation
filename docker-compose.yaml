@@ -1,0 +1,23 @@
+volumes:
+  db:
+    external: false
+
+services:
+  web_demo:
+    container_name: web_demo
+    image: web_demo
+    build: .
+    ports:
+      - '8080:8080'
+    depends_on:
+      - db
+  db:
+    container_name: web_demo_db
+    image: web_demo_db
+    build: ./db
+    volumes:
+      - db:/var/lib/postgresql
+    environment:
+      - POSTGRES_PASSWORD=user123
+      - POSTGRES_USER=user
+      - POSTGRES_DB=app

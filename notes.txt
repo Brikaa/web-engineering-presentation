@@ -1,0 +1,9 @@
+- Illustrate password hashing and salting
+- Illustrate JWT
+
+- Register
+  - Hash password
+  - Store credentials and salt in database
+- Log in
+  - Check password and salt against hashed
+- Do authorized action as user
