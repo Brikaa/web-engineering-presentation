@@ -50,7 +50,6 @@ app.post('/register', async (req, res) => {
       return res.status(400).send();
     }
     const body: AuthRequest = req.body;
-    console.log(body);
     const hashed = await hash(body.password, 10);
     await client.query('INSERT INTO AppUser (username, password) VALUES ($1::text, $2::text)', [
       body.username,
@@ -86,14 +85,57 @@ app.post('/login', async (req, res) => {
     const exp = new Date();
     exp.setMonth(exp.getMonth() + 1);
     const payload = {
-      exp,
-      id: user.id
+      exp: Math.floor(exp.getTime() / 1000),
+      id: user.id,
+      other: 'data'
     };
-    const headerAndPayload = base64url(JSON.stringify(header)) + '.' + base64url(JSON.stringify(payload));
+    const headerAndPayload =
+      base64url(JSON.stringify(header)) + '.' + base64url(JSON.stringify(payload));
     const hmac = createHmac('sha256', 'verysecretword');
     const secret = hmac.update(headerAndPayload);
     const token = headerAndPayload + '.' + secret.digest('base64url');
     return res.status(200).send({ token });
+  } catch (e) {
+    console.error(e);
+    return res.status(500).send();
+  }
+});
+
+interface ParsedPayload {
+  id: string;
+  exp: string;
+}
+
+app.post('/authorized-action', async (req, res) => {
+  try {
+    if (
+      req.header('Authorization') === undefined ||
+      !req.header('Authorization')!.toLocaleLowerCase().startsWith('bearer ') ||
+      req.header('Authorization')!.split(' ').length != 2
+    ) {
+      return res.status(400).send({ message: 'No authorization header' });
+    }
+
+    const [_, token] = req.header('Authorization')!.split(' ');
+    const tokenParts = token.split('.');
+    if (tokenParts.length != 3) {
+      return res.status(400).send({ message: 'Invalid JWT token' });
+    }
+    const payload = base64url.decode(tokenParts[1]);
+    let parsedPayload: ParsedPayload;
+    try {
+      parsedPayload = JSON.parse(payload);
+    } catch (e) {
+      return res.status(400).send({ message: 'Invalid JWT payload' });
+    }
+    if (typeof parsedPayload.id != 'string' || typeof parsedPayload.exp != 'number') {
+      return res.status(400).send({ message: 'Invalid data in JWT payload' });
+    }
+    if (new Date(parsedPayload.exp * 1000) <= new Date()) {
+      return res.status(401).send();
+    }
+    console.log(`User of id ${parsedPayload.id} is taking an authorized action.`);
+    return res.status(200).send();
   } catch (e) {
     console.error(e);
     return res.status(500).send();
