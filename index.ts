@@ -121,6 +121,9 @@ app.post('/authorized-action', async (req, res) => {
     if (tokenParts.length != 3) {
       return res.status(400).send({ message: 'Invalid JWT token' });
     }
+    const hmac = createHmac('sha256', 'verysecretword');
+    const secret = hmac.update(tokenParts[0] + '.' + tokenParts[1]);
+    if (secret.digest('base64url') != tokenParts[2]) return res.status(401).send();
     const payload = base64url.decode(tokenParts[1]);
     let parsedPayload: ParsedPayload;
     try {
